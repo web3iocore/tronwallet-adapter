@@ -1,9 +1,10 @@
 import type { SelectChangeEvent } from '@mui/material';
-import { Box, Button, Input, MenuItem, Select, Stack, Typography, styled } from '@mui/material';
+import { Alert, Box, Button, Input, MenuItem, Select, Stack, Typography, styled } from '@mui/material';
 import type { Adapter, Chain } from '@tronweb3/abstract-adapter-evm';
 import { WalletReadyState } from '@tronweb3/abstract-adapter-evm';
 import { useLocalStorage } from '@tronweb3/tronwallet-adapter-react-hooks';
 import { TronLinkEvmAdapter, BinanceEvmAdapter, MetaMaskEvmAdapter, TrustEvmAdapter } from '@tronweb3/tronwallet-adapters';
+import { LedgerEvmAdapter } from '@tronweb3/tronwallet-adapter-ledger-evm';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { utils } from 'tronweb';
 import { ethers, keccak256, toUtf8Bytes } from 'ethers';
@@ -120,7 +121,7 @@ const SectionButton = styled(Button)({
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export const EvmAdapterDemo = memo(function EvmAdapterDemo() {
-  const adapters = useMemo(() => [new BinanceEvmAdapter(), new MetaMaskEvmAdapter(), new TronLinkEvmAdapter(), new TrustEvmAdapter()], []);
+  const adapters = useMemo(() => [new BinanceEvmAdapter(), new MetaMaskEvmAdapter(), new TronLinkEvmAdapter(), new TrustEvmAdapter(), new LedgerEvmAdapter()], []);
   const [selectedName, setSelectedName] = useLocalStorage('SelectedAdapter', 'BinanceEvm');
   const [account, setAccount] = useState('');
   const [readyState, setReadyState] = useState(WalletReadyState.Loading);
@@ -131,6 +132,7 @@ export const EvmAdapterDemo = memo(function EvmAdapterDemo() {
   }
 
   const adapter = useMemo(() => adapters.find((a) => a.name === selectedName) || adapters[0], [selectedName, adapters]);
+  const isLedgerEvm = adapter.name === 'Ledger Evm';
   const log = useCallback(
     function (...args: unknown[]) {
       console.log(`[${selectedName} Adapter] `, ...args);
@@ -244,12 +246,17 @@ export const EvmAdapterDemo = memo(function EvmAdapterDemo() {
           <ConnectButton onClick={onConnect} disabled={!!account}>
             {account ? 'Connected to Wallet' : 'Connect Wallet'}
           </ConnectButton>
+          {isLedgerEvm && (
+            <Alert severity="info" sx={{ marginTop: '12px' }}>
+              Ledger EVM adapter supports connect and signing. Sending transaction and contract actions are disabled in this demo.
+            </Alert>
+          )}
         </BasicInfoWrap>
 
         {/* Right Column: Action Cards */}
         <Box sx={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
-          <SectionSign adapter={adapter} connected={!!account} />
-          <SectionTriggerContract adapter={adapter} connected={!!account} />
+          <SectionSign adapter={adapter} connected={!!account} supportsSendTransaction={!isLedgerEvm} />
+          <SectionTriggerContract adapter={adapter} connected={!!account} supportsSendTransaction={!isLedgerEvm} />
           <SectionSwitchChain adapter={adapter} connected={!!account} />
         </Box>
       </MainContent>
@@ -259,7 +266,7 @@ export const EvmAdapterDemo = memo(function EvmAdapterDemo() {
 
 // ─── Section: Sign ───────────────────────────────────────────────────────────
 
-const SectionSign = memo(function SectionSign({ adapter, connected }: { adapter: Adapter; connected: boolean }) {
+const SectionSign = memo(function SectionSign({ adapter, connected, supportsSendTransaction }: { adapter: Adapter; connected: boolean; supportsSendTransaction: boolean }) {
   const [message, setMessage] = useState('Hello, Adapter');
   const [signedMessage, setSignedMessage] = useState('');
   const [receiver, setReceiver] = useState('');
@@ -331,7 +338,7 @@ const SectionSign = memo(function SectionSign({ adapter, connected }: { adapter:
       </SectionButton>
       <SectionButton onClick={onSignTypedData}>Sign Typed Data</SectionButton>
       <DarkInput placeholder="Receiver Address" disableUnderline value={receiver} onChange={(e) => setReceiver(e.target.value)} />
-      <SectionButton disabled={!connected || !receiver} onClick={onSignTransaction}>
+      <SectionButton disabled={!connected || !receiver || !supportsSendTransaction} onClick={onSignTransaction}>
         Transfer
       </SectionButton>
     </SectionCard>
@@ -340,7 +347,7 @@ const SectionSign = memo(function SectionSign({ adapter, connected }: { adapter:
 
 // ─── Section: Smart Contract ─────────────────────────────────────────────────
 
-const SectionTriggerContract = function ({ adapter, connected }: { adapter: Adapter; connected: boolean }) {
+const SectionTriggerContract = function ({ adapter, connected, supportsSendTransaction }: { adapter: Adapter; connected: boolean; supportsSendTransaction: boolean }) {
   const [number, setNumber] = useState('0');
   const [contractAddress, setContractAddress] = useState('');
 
@@ -383,15 +390,15 @@ const SectionTriggerContract = function ({ adapter, connected }: { adapter: Adap
       <Typography variant="h6" fontWeight={700} color="white">
         Smart Contract
       </Typography>
-      <SectionButton disabled={!connected} onClick={deployContract}>
+      <SectionButton disabled={!connected || !supportsSendTransaction} onClick={deployContract}>
         Deploy Contract
       </SectionButton>
       <DarkInput placeholder="Contract Address" disableUnderline value={contractAddress} onChange={(e) => setContractAddress(e.target.value)} />
       <DarkInput placeholder="Number" disableUnderline value={number} onChange={(e) => setNumber(e.target.value)} />
-      <SectionButton disabled={!connected || !contractAddress} onClick={triggerContract}>
+      <SectionButton disabled={!connected || !contractAddress || !supportsSendTransaction} onClick={triggerContract}>
         Store Number
       </SectionButton>
-      <SectionButton disabled={!connected || !contractAddress} onClick={readContract}>
+      <SectionButton disabled={!connected || !contractAddress || !supportsSendTransaction} onClick={readContract}>
         Get Number
       </SectionButton>
     </SectionCard>
