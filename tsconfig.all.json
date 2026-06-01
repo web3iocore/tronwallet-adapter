@@ -53,6 +53,9 @@
             "path": "./packages/adapters/evm/trust/tsconfig.all.json"
         },
         {
+            "path": "./packages/adapters/evm/ledger/tsconfig.all.json"
+        },
+        {
             "path": "./packages/adapters/foxwallet/tsconfig.all.json"
         },
         {
